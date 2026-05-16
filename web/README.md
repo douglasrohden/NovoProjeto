@@ -54,30 +54,43 @@ Documentação da stack: [`docs/stack-nextjs.md`](docs/stack-nextjs.md) · ADR: 
 - [Docker](https://docs.docker.com/get-docker/) 24+
 - [Docker Compose](https://docs.docker.com/compose/) v2
 
-## Instalação e execução
+## Instalação e execução (Docker)
 
-### 1. Clonar e configurar ambiente
+Guia na raiz do repositório: [`../../README.md`](../../README.md) · Detalhes: [`docs/docker.md`](docs/docker.md)
+
+### 1. Configurar ambiente
 
 ```bash
-git clone <url-do-repositorio>
-cd ProjectEntrevista
+cd NovoProjeto/web
 cp .env.example .env
 ```
 
-### 2. Subir toda a stack (um único comando)
+### 2. Build da imagem
 
 ```bash
-docker compose up -d --build
+docker build -t document-platform:latest .
 ```
 
-Alternativa com script (cria `.env` automaticamente se não existir):
+### 3. Subir a stack completa
 
 ```bash
-# Linux / macOS / Git Bash
-./install.sh
+docker compose up -d
+```
 
-# Windows PowerShell
+Produção (sem expor Postgres/Redis no host):
+
+```bash
+docker build -t document-platform:latest .
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+Script (build + compose; cria `.env` se não existir):
+
+```bash
+./install.sh
+./install.sh --production
 .\install.ps1
+.\install.ps1 -Production
 ```
 
 Serviços:
@@ -90,19 +103,17 @@ Serviços:
 | `postgres` | 5433 (host) | Banco de dados (5433 evita conflito com PostgreSQL local na 5432) |
 | `redis` | 6379 | Fila de jobs |
 
-Guia completo Docker: [`docs/docker.md`](docs/docker.md)
-
-### 3. Verificar saúde
+### 4. Verificar saúde
 
 ```bash
 curl http://localhost:3000/api/health
 ```
 
-### 4. Interface web
+### 5. Interface web
 
 Abra [http://localhost:3000](http://localhost:3000) para upload, consulta de status e importação XML.
 
-### 5. Desenvolvimento local (sem Docker)
+### 6. Desenvolvimento local (sem Docker)
 
 ```bash
 npm install
@@ -112,7 +123,7 @@ npm run dev          # terminal 1 — http://localhost:3000
 npm run worker       # terminal 2 — processa fila Redis
 ```
 
-### 6. Parar
+### 7. Parar
 
 ```bash
 docker compose down

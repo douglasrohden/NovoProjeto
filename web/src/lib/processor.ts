@@ -21,19 +21,21 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 export async function processDocument(documentId: string): Promise<void> {
   const start = Date.now();
-  const doc = await prisma.document.findUnique({ where: { id: documentId } });
+  let doc = await prisma.document.findUnique({ where: { id: documentId } });
   if (!doc) {
     logEvent("document.not_found", { document_id: documentId }, "warn");
     return;
   }
-  if (doc.status !== DocumentStatus.pending) {
+
+  const claimed = await prisma.document.updateMany({
+    where: { id: documentId, status: DocumentStatus.pending },
+    data: { status: DocumentStatus.processing },
+  });
+  if (claimed.count === 0) {
     return;
   }
 
-  await prisma.document.update({
-    where: { id: documentId },
-    data: { status: DocumentStatus.processing },
-  });
+  doc = (await prisma.document.findUnique({ where: { id: documentId } })) ?? doc;
 
   logEvent("document.processing_started", {
     document_id: documentId,

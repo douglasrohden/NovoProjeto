@@ -1,0 +1,20 @@
+# Overlay de produção — não expõe Postgres/Redis no host
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#   .\install.ps1 -Production
+
+services:
+  web:
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-warn}
+
+  worker:
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-warn}
+
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []

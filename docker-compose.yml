@@ -1,0 +1,8 @@
+# Stack completa — executar a partir de NovoProjeto/
+#   docker compose up -d --build
+#   docker compose -f web/docker-compose.yml -f web/docker-compose.prod.yml up -d --build  (produção)
+
+name: document-processing-platform
+
+include:
+  - path: ./web/docker-compose.yml

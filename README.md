@@ -1,30 +1,34 @@
 # Novo projeto
 
-## Docker (stack completa)
+## Docker — projeto completo
 
-Na pasta **`web/`**, com [Docker Desktop](https://docs.docker.com/desktop/install/windows-install/) instalado:
+Requisito: [Docker Desktop](https://docs.docker.com/desktop/install/windows-install/) em execução.
 
 ```powershell
 cd web
-copy .env.example .env        # opcional — ajuste POSTGRES_PASSWORD, etc.
-docker compose up -d --build
+copy .env.example .env
+docker build -t document-platform:latest .
+docker compose up -d
 ```
 
-- App: http://localhost:3000 (`API_PORT` no `.env`)
-- Estado: http://localhost:3000/api/health
+- App: http://localhost:3000  
+- Health: http://localhost:3000/api/health  
 
-Para parar:
+Ou use o script (faz build + compose):
 
 ```powershell
-docker compose down
+cd web
+.\install.ps1
 ```
 
-O ficheiro `web/docs/xml-schema.xsd` tem de existir (validação XML no container).  
-Migrations PostgreSQL: `web/prisma/migrations/` (aplicadas pelo serviço `init-db` com `prisma migrate deploy`).
+Guia completo na raiz do repositório: [`../README.md`](../README.md)  
+Detalhes: [`web/docs/docker.md`](web/docs/docker.md)
+
+Parar: `docker compose down` (dentro de `web/`)
 
 ---
 
-Leitura sugerida (arquitetura), por ordem:
+Leitura sugerida (arquitetura):
 
-1. **[docs/DOCUMENTO.md](docs/DOCUMENTO.md)** — o que faz, decisões e regras (linguagem simples)  
-2. **[docs/diagrama.md](docs/diagrama.md)** — um desenho + estados do documento  
+1. **[docs/DOCUMENTO.md](docs/DOCUMENTO.md)**  
+2. **[docs/diagrama.md](docs/diagrama.md)**  

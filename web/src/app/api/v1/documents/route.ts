@@ -2,7 +2,7 @@ import { DocumentStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { AppError, errorResponse, getRequestId } from "@/lib/errors";
 import { logEvent } from "@/lib/logger";
-import { enqueueDocument } from "@/lib/queue";
+import { scheduleDocumentProcessing } from "@/lib/processing";
 import { buildStoragePath, saveFile } from "@/lib/storage";
 import { validateUpload } from "@/lib/validation";
 
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       },
     });
 
-    await enqueueDocument(id);
+    await scheduleDocumentProcessing(id);
 
     logEvent("document.uploaded", {
       request_id: requestId,

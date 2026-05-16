@@ -1,10 +1,15 @@
-# Document Processing Platform — stack completa
-# Subir: docker compose up -d --build
-# Ou:    ./install.sh  |  .\install.ps1
+# Document Processing Platform — stack completa (produção)
+# 1) docker build -t document-platform:latest .
+# 2) docker compose up -d
+# Ver README.md (raiz) e docs/docker.md
+
+x-app-image: &app-image
+  image: ${APP_IMAGE:-document-platform:latest}
+  build: .
 
 services:
   init-db:
-    build: .
+    <<: *app-image
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -15,7 +20,7 @@ services:
     restart: "no"
 
   web:
-    build: .
+    <<: *app-image
     env_file: .env
     ports:
       - "${API_PORT:-3000}:3000"
@@ -27,6 +32,7 @@ services:
       TESSDATA_PATH: /app/tessdata
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TESSERACT_LANG: ${TESSERACT_LANG:-por}
+      PROCESS_INLINE: ${PROCESS_INLINE:-false}
       NODE_ENV: production
     volumes:
       - uploads_data:/data/uploads
@@ -50,7 +56,7 @@ services:
       start_period: 60s
 
   worker:
-    build: .
+    <<: *app-image
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
