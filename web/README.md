@@ -87,7 +87,7 @@ Serviços:
 | `web` | 3000 | Next.js (UI + API `/api/v1/*`) |
 | `worker` | — | Processamento OCR/PDF (BullMQ) |
 | `init-db` | — | Migra schema Prisma (roda uma vez) |
-| `postgres` | 5432 | Banco de dados |
+| `postgres` | 5433 (host) | Banco de dados (5433 evita conflito com PostgreSQL local na 5432) |
 | `redis` | 6379 | Fila de jobs |
 
 Guia completo Docker: [`docs/docker.md`](docs/docker.md)

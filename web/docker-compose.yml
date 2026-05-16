@@ -5,8 +5,9 @@
 services:
   init-db:
     build: .
+    env_file: .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-documents}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     depends_on:
       postgres:
         condition: service_healthy
@@ -15,10 +16,11 @@ services:
 
   web:
     build: .
+    env_file: .env
     ports:
       - "${API_PORT:-3000}:3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-documents}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       UPLOAD_DIR: /data/uploads
       XML_SCHEMA_PATH: /app/docs/xml-schema.xsd
@@ -49,8 +51,9 @@ services:
 
   worker:
     build: .
+    env_file: .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-documents}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       UPLOAD_DIR: /data/uploads
       XML_SCHEMA_PATH: /app/docs/xml-schema.xsd
@@ -72,6 +75,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    env_file: .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-documents}
       POSTGRES_USER: ${POSTGRES_USER:-app_user}
@@ -79,7 +83,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # 5433 no host evita conflito com PostgreSQL instalado no Windows (porta 5432)
+      - "${POSTGRES_PORT:-5433}:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app_user} -d ${POSTGRES_DB:-documents}"]
