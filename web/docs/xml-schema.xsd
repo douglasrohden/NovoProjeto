@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+
+  <!--
+    Schema de enriquecimento — Document Processing Platform
+    Versão: 1.0
+    Documentação: docs/xml-schema.md
+  -->
+
+  <xs:element name="DocumentEnrichment" type="DocumentEnrichmentType"/>
+
+  <xs:complexType name="DocumentEnrichmentType">
+    <xs:sequence>
+      <xs:element name="Client" type="ClientType"/>
+      <xs:element name="Reference" type="ReferenceType"/>
+      <xs:element name="Fields" type="FieldsType"/>
+      <xs:element name="Metadata" type="MetadataType" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="version" type="xs:string" use="optional" default="1.0"/>
+  </xs:complexType>
+
+  <xs:complexType name="ClientType">
+    <xs:attribute name="code" type="ClientCodeType" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:simpleType name="ClientCodeType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z0-9]{2,20}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="ReferenceType">
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="type" type="ReferenceTypeEnum" use="required"/>
+    <xs:attribute name="externalId" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:simpleType name="ReferenceTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="invoice"/>
+      <xs:enumeration value="contract"/>
+      <xs:enumeration value="receipt"/>
+      <xs:enumeration value="statement"/>
+      <xs:enumeration value="other"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="FieldsType">
+    <xs:sequence>
+      <xs:element name="Field" type="FieldType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="FieldType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="name" type="FieldNameType" use="required"/>
+        <xs:attribute name="label" type="xs:string" use="optional"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:simpleType name="FieldNameType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-z][a-z0-9_]{1,63}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="MetadataType">
+    <xs:sequence>
+      <xs:element name="ImportedAt" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="SourceSystem" type="xs:string" minOccurs="0"/>
+      <xs:element name="Notes" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>

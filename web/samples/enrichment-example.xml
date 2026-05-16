@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DocumentEnrichment version="1.0">
+  <Client code="ACME01" name="ACME Corporation"/>
+  <Reference id="INV-2026-0042" type="invoice" externalId="EXT-9981"/>
+  <Fields>
+    <Field name="issue_date" label="Data de emissão">15/03/2026</Field>
+    <Field name="total_amount" label="Valor total">1500.00</Field>
+    <Field name="currency" label="Moeda">BRL</Field>
+    <Field name="tax_id" label="CNPJ">12.345.678/0001-90</Field>
+  </Fields>
+  <Metadata>
+    <ImportedAt>2026-03-16T10:30:00</ImportedAt>
+    <SourceSystem>ERP-Cliente</SourceSystem>
+    <Notes>Exemplo para testes manuais e integração</Notes>
+  </Metadata>
+</DocumentEnrichment>

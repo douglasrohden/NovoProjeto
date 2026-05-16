@@ -1,0 +1,103 @@
+# Document Processing Platform — stack completa
+# Subir: docker compose up -d --build
+# Ou:    ./install.sh  |  .\install.ps1
+
+services:
+  init-db:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-documents}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npx prisma migrate deploy
+    restart: "no"
+
+  web:
+    build: .
+    ports:
+      - "${API_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-documents}
+      REDIS_URL: redis://redis:6379
+      UPLOAD_DIR: /data/uploads
+      XML_SCHEMA_PATH: /app/docs/xml-schema.xsd
+      TESSDATA_PATH: /app/tessdata
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TESSERACT_LANG: ${TESSERACT_LANG:-por}
+      NODE_ENV: production
+    volumes:
+      - uploads_data:/data/uploads
+      - ./docs:/app/docs:ro
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    entrypoint: ["./docker/entrypoint-web.sh"]
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:3000/api/health | grep -q '\"status\":\"ok\"' || exit 1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+  worker:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-documents}
+      REDIS_URL: redis://redis:6379
+      UPLOAD_DIR: /data/uploads
+      XML_SCHEMA_PATH: /app/docs/xml-schema.xsd
+      TESSDATA_PATH: /app/tessdata
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TESSERACT_LANG: ${TESSERACT_LANG:-por}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      NODE_ENV: production
+    volumes:
+      - uploads_data:/data/uploads
+      - ./docs:/app/docs:ro
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    entrypoint: ["./docker/entrypoint-worker.sh"]
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-documents}
+      POSTGRES_USER: ${POSTGRES_USER:-app_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app_user} -d ${POSTGRES_DB:-documents}"]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 8
+
+volumes:
+  pgdata:
+  uploads_data:

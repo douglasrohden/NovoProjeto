@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  XML inválido para testar resposta 422 do endpoint /enrichment.
+  Erros propositais:
+    1. Client@code não atende ao padrão [A-Z0-9]{2,20} (contém minúsculas e hífen)
+    2. Reference@type "purchase_order" não está no enum permitido
+    3. Field@name "Issue Date" contém maiúscula e espaço (deveria casar [a-z][a-z0-9_]{1,63})
+-->
+<DocumentEnrichment version="1.0">
+  <Client code="acme-01" name="ACME Corporation"/>
+  <Reference id="INV-2026-0042" type="purchase_order"/>
+  <Fields>
+    <Field name="Issue Date">15/03/2026</Field>
+  </Fields>
+</DocumentEnrichment>

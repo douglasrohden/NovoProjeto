@@ -1,0 +1,100 @@
+### Document Processing Platform — exemplos HTTP
+### VS Code REST Client / IntelliJ HTTP Client
+@baseUrl = http://localhost:3000
+@documentId = 550e8400-e29b-41d4-a716-446655440000
+
+### Health
+GET {{baseUrl}}/api/health
+
+### =============================================================================
+### DOCUMENTOS
+### =============================================================================
+
+### Upload PDF
+POST {{baseUrl}}/api/v1/documents
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="file"; filename="nota-fiscal.pdf"
+Content-Type: application/pdf
+
+< ./samples/nota-fiscal.pdf
+------Boundary--
+
+### Upload PNG
+# POST {{baseUrl}}/api/v1/documents
+# Content-Type: multipart/form-data; boundary=----Boundary
+#
+# ------Boundary
+# Content-Disposition: form-data; name="file"; filename="scan.png"
+# Content-Type: image/png
+#
+# < ./samples/scan.png
+# ------Boundary--
+
+### Consultar documento por ID
+GET {{baseUrl}}/api/v1/documents/{{documentId}}
+
+### Listar documentos — todos
+GET {{baseUrl}}/api/v1/documents?page=1&page_size=20
+
+### Listar — filtro por status
+GET {{baseUrl}}/api/v1/documents?status=processed
+
+### Listar — com enriquecimento XML
+GET {{baseUrl}}/api/v1/documents?has_enrichment=true
+
+### Listar — período
+GET {{baseUrl}}/api/v1/documents?from=2026-05-01&to=2026-05-31
+
+### Enriquecimento XML
+POST {{baseUrl}}/api/v1/documents/{{documentId}}/enrichment
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="file"; filename="enrichment.xml"
+Content-Type: application/xml
+
+< ./samples/enrichment-example.xml
+------Boundary--
+
+### =============================================================================
+### RELATÓRIOS
+### =============================================================================
+
+### Resumo quantitativo
+GET {{baseUrl}}/api/v1/reports/summary?from=2026-05-01&to=2026-05-31
+
+### Resumo agrupado por dia
+GET {{baseUrl}}/api/v1/reports/summary?from=2026-05-01&to=2026-05-31&group_by=day
+
+### Exportar CSV
+GET {{baseUrl}}/api/v1/reports/export.csv?status=processed
+
+### =============================================================================
+### ERROS ESPERADOS (testes manuais)
+### =============================================================================
+
+### Upload sem arquivo — esperado 400
+# POST {{baseUrl}}/api/v1/documents
+
+### XML para ID inexistente — esperado 404
+# POST {{baseUrl}}/api/v1/documents/00000000-0000-0000-0000-000000000000/enrichment
+# Content-Type: multipart/form-data; boundary=----Boundary
+#
+# ------Boundary
+# Content-Disposition: form-data; name="file"; filename="bad.xml"
+#
+# < ./samples/enrichment-example.xml
+# ------Boundary--
+
+### XML inválido (viola XSD) — esperado 422
+# POST {{baseUrl}}/api/v1/documents/{{documentId}}/enrichment
+# Content-Type: multipart/form-data; boundary=----Boundary
+#
+# ------Boundary
+# Content-Disposition: form-data; name="file"; filename="invalid.xml"
+# Content-Type: application/xml
+#
+# < ./samples/enrichment-invalid.xml
+# ------Boundary--
