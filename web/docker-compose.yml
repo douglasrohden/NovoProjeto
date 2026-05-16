@@ -1,24 +1,11 @@
 # Document Processing Platform — stack completa (produção)
-# 1) docker build -t document-platform:latest .
-# 2) docker compose up -d
-# Ver README.md (raiz) e docs/docker.md
+# Subir: docker compose up -d
 
 x-app-image: &app-image
   image: ${APP_IMAGE:-document-platform:latest}
   build: .
 
 services:
-  init-db:
-    <<: *app-image
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: npx prisma migrate deploy
-    restart: "no"
-
   web:
     <<: *app-image
     env_file: .env
@@ -38,22 +25,10 @@ services:
       - uploads_data:/data/uploads
       - ./docs:/app/docs:ro
     depends_on:
-      init-db:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
     entrypoint: ["./docker/entrypoint-web.sh"]
     restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "curl -fsS http://localhost:3000/api/health | grep -q '\"status\":\"ok\"' || exit 1",
-        ]
-      interval: 15s
-      timeout: 10s
-      retries: 8
-      start_period: 60s
 
   worker:
     <<: *app-image
@@ -72,10 +47,9 @@ services:
       - uploads_data:/data/uploads
       - ./docs:/app/docs:ro
     depends_on:
-      init-db:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
+      - web
     entrypoint: ["./docker/entrypoint-worker.sh"]
     restart: unless-stopped
 
@@ -89,25 +63,14 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      # 5433 no host evita conflito com PostgreSQL instalado no Windows (porta 5432)
       - "${POSTGRES_PORT:-5433}:5432"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app_user} -d ${POSTGRES_DB:-documents}"]
-      interval: 5s
-      timeout: 5s
-      retries: 8
 
   redis:
     image: redis:7-alpine
     ports:
       - "${REDIS_PORT:-6379}:6379"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 8
 
 volumes:
   pgdata:

@@ -1,4 +1,4 @@
-# Build da imagem + sobe a stack (Windows PowerShell)
+# Sobe a stack completa (Windows PowerShell)
 param(
     [switch]$Production
 )
@@ -10,15 +10,6 @@ if (-not (Test-Path .env)) {
     Copy-Item .env.example .env
     Write-Host "Created .env from .env.example"
 }
-
-$image = if ($env:APP_IMAGE) { $env:APP_IMAGE } else { "document-platform:latest" }
-if (Test-Path .env) {
-    $line = Get-Content .env | Where-Object { $_ -match '^\s*APP_IMAGE=' } | Select-Object -First 1
-    if ($line -match 'APP_IMAGE=(.+)') { $image = $Matches[1].Trim() }
-}
-
-Write-Host "Building image $image ..."
-docker build -t $image .
 
 $composeArgs = @("compose", "-f", "docker-compose.yml")
 if ($Production) {

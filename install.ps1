@@ -1,4 +1,4 @@
-# Delega para web/ (docker build + compose)
+# Delega para web/ (docker compose up -d)
 param(
     [switch]$Production
 )

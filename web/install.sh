@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build da imagem + sobe a stack
+# Sobe a stack completa
 set -euo pipefail
 
 PRODUCTION=false
@@ -16,15 +16,6 @@ if [[ ! -f .env ]]; then
   cp .env.example .env
   echo "Created .env from .env.example"
 fi
-
-IMAGE="${APP_IMAGE:-document-platform:latest}"
-if [[ -f .env ]]; then
-  val=$(grep -E '^\s*APP_IMAGE=' .env | tail -1 | cut -d= -f2- | tr -d '\r' || true)
-  [[ -n "$val" ]] && IMAGE="$val"
-fi
-
-echo "Building image ${IMAGE} ..."
-docker build -t "${IMAGE}" .
 
 COMPOSE=(docker compose -f docker-compose.yml)
 if [[ "$PRODUCTION" == true ]]; then

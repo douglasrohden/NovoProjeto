@@ -56,22 +56,20 @@ Documentação da stack: [`docs/stack-nextjs.md`](docs/stack-nextjs.md) · ADR: 
 
 ## Instalação e execução (Docker)
 
-Guia na raiz do repositório: [`../../README.md`](../../README.md) · Detalhes: [`docs/docker.md`](docs/docker.md)
+Repositório: [github.com/douglasrohden/NovoProjeto](https://github.com/douglasrohden/NovoProjeto)  
+Guia na raiz: [`../README.md`](../README.md) · Detalhes: [`docs/docker.md`](docs/docker.md)
 
-### 1. Configurar ambiente
+### 1. Clonar e configurar ambiente
 
 ```bash
+git clone https://github.com/douglasrohden/NovoProjeto.git
 cd NovoProjeto/web
 cp .env.example .env
 ```
 
-### 2. Build da imagem
+Windows (PowerShell): `copy .env.example .env`
 
-```bash
-docker build -t document-platform:latest .
-```
-
-### 3. Subir a stack completa
+### 2. Subir a stack completa
 
 ```bash
 docker compose up -d
@@ -80,11 +78,10 @@ docker compose up -d
 Produção (sem expor Postgres/Redis no host):
 
 ```bash
-docker build -t document-platform:latest .
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-Script (build + compose; cria `.env` se não existir):
+Script (cria `.env` se não existir e sobe a stack):
 
 ```bash
 ./install.sh
@@ -99,21 +96,20 @@ Serviços:
 |---------|-------|-----------|
 | `web` | 3000 | Next.js (UI + API `/api/v1/*`) |
 | `worker` | — | Processamento OCR/PDF (BullMQ) |
-| `init-db` | — | Migra schema Prisma (roda uma vez) |
 | `postgres` | 5433 (host) | Banco de dados (5433 evita conflito com PostgreSQL local na 5432) |
 | `redis` | 6379 | Fila de jobs |
 
-### 4. Verificar saúde
+### 3. Verificar saúde
 
 ```bash
 curl http://localhost:3000/api/health
 ```
 
-### 5. Interface web
+### 4. Interface web
 
 Abra [http://localhost:3000](http://localhost:3000) para upload, consulta de status e importação XML.
 
-### 6. Desenvolvimento local (sem Docker)
+### 5. Desenvolvimento local (sem Docker)
 
 ```bash
 npm install
@@ -123,7 +119,7 @@ npm run dev          # terminal 1 — http://localhost:3000
 npm run worker       # terminal 2 — processa fila Redis
 ```
 
-### 7. Parar
+### 6. Parar
 
 ```bash
 docker compose down
