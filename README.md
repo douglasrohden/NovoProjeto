@@ -19,7 +19,8 @@ Para parar:
 docker compose down
 ```
 
-O ficheiro `web/docs/xml-schema.xsd` tem de existir (validação XML no container).
+O ficheiro `web/docs/xml-schema.xsd` tem de existir (validação XML no container).  
+Migrations PostgreSQL: `web/prisma/migrations/` (aplicadas pelo serviço `init-db` com `prisma migrate deploy`).
 
 ---
 
