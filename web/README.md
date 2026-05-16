@@ -94,14 +94,16 @@ Serviços:
 
 | Serviço | Porta | Descrição |
 |---------|-------|-----------|
+| `init-db` | — | `prisma migrate deploy` (obrigatório antes de web/worker) |
 | `web` | 3000 | Next.js (UI + API `/api/v1/*`) |
 | `worker` | — | Processamento OCR/PDF (BullMQ) |
-| `postgres` | 5433 (host) | Banco de dados (5433 evita conflito com PostgreSQL local na 5432) |
+| `postgres` | 5433 (host) | Banco de dados |
 | `redis` | 6379 | Fila de jobs |
 
 ### 3. Verificar saúde
 
 ```bash
+docker compose logs init-db
 curl http://localhost:3000/api/health
 ```
 

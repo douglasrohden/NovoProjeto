@@ -56,15 +56,19 @@ Na primeira execução o Compose **constrói a imagem** e sobe todos os serviço
 |---------|-----------|
 | `postgres` | PostgreSQL 16 |
 | `redis` | Fila BullMQ |
-| `web` | UI + API Next.js — porta **3000** |
+| `init-db` | `prisma migrate deploy` (roda uma vez; obrigatório para produção) |
+| `web` | UI + API Next.js — porta **3000** (só sobe após migrations OK) |
 | `worker` | Processamento assíncrono (OCR/PDF) |
 
 ### 4. Verificar
 
 ```bash
+docker compose logs init-db
 docker compose ps
 curl http://localhost:3000/api/health
 ```
+
+Em `init-db` deve aparecer: **Migrations applied successfully.**
 
 - **App:** http://localhost:3000  
 - **Health:** http://localhost:3000/api/health  
@@ -150,7 +154,8 @@ npm run worker   # terminal 2
 | Sintoma | Solução |
 |---------|---------|
 | `docker` não reconhecido | Instale e **inicie** o Docker Desktop |
-| Só `postgres` e `redis` no Desktop | `docker compose logs web` — aguarde o build ou rode `docker compose up -d` de novo |
+| Só `postgres` e `redis` no Desktop | `docker compose logs init-db` — migrations falharam ou imagem não buildou |
+| `init-db` exited (1) | Senha errada no `.env` vs volume antigo → `docker compose down -v` e subir de novo |
 | Worker não processa | `docker compose logs worker` |
 | Senha Postgres | `docker compose down -v` se mudou `POSTGRES_PASSWORD` após o 1º `up` |
 | Porta 3000 em uso | `API_PORT=3001` no `.env` |

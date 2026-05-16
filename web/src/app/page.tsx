@@ -189,7 +189,7 @@ export default function HomePage() {
         </p>
       )}
 
-      <motionCard>
+      <MotionCard>
         <label>Upload PDF ou PNG</label>
         <input
           type="file"
@@ -199,9 +199,9 @@ export default function HomePage() {
         <button type="button" onClick={uploadDocument} disabled={loading || !file}>
           Enviar documento
         </button>
-      </motionCard>
+      </MotionCard>
 
-      <motionCard>
+      <MotionCard>
         <label>ID do documento</label>
         <input
           type="text"
@@ -213,9 +213,9 @@ export default function HomePage() {
         <button type="button" onClick={pollStatus} disabled={loading || !documentId}>
           Consultar status
         </button>
-      </motionCard>
+      </MotionCard>
 
-      <motionCard>
+      <MotionCard>
         <label>XML de enriquecimento</label>
         <input
           type="file"
@@ -235,13 +235,13 @@ export default function HomePage() {
             Importar XML so quando o status for <strong>processed</strong>.
           </p>
         )}
-      </motionCard>
+      </MotionCard>
 
       {result && <pre>{result}</pre>}
     </main>
   );
 }
 
-function motionCard({ children }: { children: React.ReactNode }) {
+function MotionCard({ children }: { children: React.ReactNode }) {
   return <div className="card">{children}</div>;
 }

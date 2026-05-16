@@ -6,6 +6,17 @@ x-app-image: &app-image
   build: .
 
 services:
+  init-db:
+    <<: *app-image
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["./docker/entrypoint-migrate.sh"]
+    restart: "no"
+
   web:
     <<: *app-image
     env_file: .env
@@ -19,14 +30,16 @@ services:
       TESSDATA_PATH: /app/tessdata
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TESSERACT_LANG: ${TESSERACT_LANG:-por}
-      PROCESS_INLINE: ${PROCESS_INLINE:-false}
+      PROCESS_INLINE: "false"
       NODE_ENV: production
     volumes:
       - uploads_data:/data/uploads
       - ./docs:/app/docs:ro
     depends_on:
-      - postgres
-      - redis
+      init-db:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
     entrypoint: ["./docker/entrypoint-web.sh"]
     restart: unless-stopped
 
@@ -42,14 +55,16 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TESSERACT_LANG: ${TESSERACT_LANG:-por}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      PROCESS_INLINE: "false"
       NODE_ENV: production
     volumes:
       - uploads_data:/data/uploads
       - ./docs:/app/docs:ro
     depends_on:
-      - postgres
-      - redis
-      - web
+      init-db:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
     entrypoint: ["./docker/entrypoint-worker.sh"]
     restart: unless-stopped
 
@@ -65,12 +80,23 @@ services:
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app_user} -d ${POSTGRES_DB:-documents}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
     ports:
       - "${REDIS_PORT:-6379}:6379"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 volumes:
   pgdata:

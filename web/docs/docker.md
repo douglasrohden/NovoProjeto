@@ -37,11 +37,26 @@ cp .env.example .env
 docker compose up -d
 ```
 
-O Compose constrói a imagem (`Dockerfile`) e inicia `postgres`, `redis`, `web` e `worker`.
+O Compose constrói a imagem e inicia, nesta ordem: `postgres` → `init-db` (migrations) → `web` + `worker`.
 
 A imagem inclui Node.js 22, Next.js em produção, Prisma, Tesseract (`por`/`eng`) e `xmllint`.
 
+| Container | Função |
+|-----------|--------|
+| `postgres` | PostgreSQL 16 (healthcheck) |
+| `init-db` | `prisma migrate deploy` — cria `documents` e `audit_logs` |
+| `redis` | Fila BullMQ |
+| `web` | Next.js — inicia só se `init-db` terminou com sucesso |
+| `worker` | Processamento — inicia só se `init-db` terminou com sucesso |
+
 ### 4. Verificar
+
+Confirmar migrations:
+
+```bash
+docker compose logs init-db
+# esperado: "Migrations applied successfully."
+```
 
 ```bash
 docker compose ps

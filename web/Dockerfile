@@ -25,7 +25,7 @@ COPY . .
 
 RUN npx prisma generate && npm run build
 
-RUN chmod +x docker/entrypoint-web.sh docker/entrypoint-worker.sh
+RUN chmod +x docker/entrypoint-migrate.sh docker/entrypoint-web.sh docker/entrypoint-worker.sh
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
