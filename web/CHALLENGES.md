@@ -1,52 +1,69 @@
 # Desafios, débitos técnicos e decisões retrospectivas
 
-Documenta dificuldades reais, decisões revistas durante a implementação e o que ficaria diferente com mais tempo — requisito do Módulo 3 do desafio técnico.
+Documenta dificuldades reais encontradas na implementação, o que faria diferente com mais tempo e débitos técnicos assumidos de forma consciente — requisito do desafio técnico (Módulo 3).
+
+**Coleção de API:** [`api.http`](api.http) (VS Code REST Client / IntelliJ) · [`postman/Document-Processing-Platform.postman_collection.json`](postman/Document-Processing-Platform.postman_collection.json) (Postman / Insomnia via import)
 
 ---
 
 ## 1. Dificuldades encontradas
 
-### 1.1 Análise do diagrama original *(Módulo 1)*
+### 1.1 Análise do diagrama original
 
 - **Ambiguidade intencional:** componentes "opcionais" (RabbitMQ, Redis Cache) coexistem com pipeline "Síncrono" — exige decisão explícita em vez de copiar o desenho.
-- **Polyglot persistence injustificável** (Mongo+Postgres+MySQL+Elasticsearch) para 5k docs/dia. Decisão crítica de unificar em PostgreSQL com JSONB para `extracted_text`, `patterns` e `enrichment`.
+- **Polyglot persistence injustificável** (Mongo + Postgres + MySQL + Elasticsearch) para ~5k docs/dia. Decisão crítica: **PostgreSQL único** com JSONB para `extracted_text`, `patterns` e `enrichment`.
+
+Visão consolidada: [`../docs/DOCUMENTO.md`](../docs/DOCUMENTO.md).
 
 ### 1.2 Pivô de stack (FastAPI → Next.js)
 
-O planejamento inicial em `docs/PLANEJAMENTO.md` previa **FastAPI + Python**. Durante o setup percebi que:
+O planejamento inicial previa **FastAPI + Python**. Durante o setup:
 
-- O critério "subir com UM comando" pesa mais que escolha de linguagem.
-- TypeScript + Next.js dá UI (Route Handlers) e API no mesmo build, com um único `Dockerfile` e uma única árvore de dependências.
-- Tesseract.js + pdfjs-dist são puro JS — não precisam de bibliotecas nativas pesadas no container (apenas `libxml2-utils` para XSD).
+- O critério "subir com **um** comando" (`docker compose up -d`) pesou mais que a linguagem.
+- TypeScript + Next.js unifica UI (App Router) e API (Route Handlers) no mesmo build, com um `Dockerfile` e uma árvore de dependências.
+- `tesseract.js` + `pdfjs-dist` rodam em Node sem bibliotecas nativas pesadas no container (apenas `libxml2-utils` para validação XSD).
 
-Pivô documentado em [ADR](docs/adr/ADR.md). O `docs/PLANEJAMENTO.md` foi mantido como histórico do raciocínio original (linguagem ≠ arquitetura).
+### 1.3 `pdf-parse` v1.1.1 não lê PDFs modernos
 
-### 1.3 `pdf-parse` v1.1.1 é incapaz de ler PDFs gerados por bibliotecas modernas
+A escolha inicial foi `pdf-parse`. PDFs gerados por `pdfkit` ou `pdf-lib` falhavam com **`bad XRef entry`** — a lib empacota `pdf.js` de 2018, sem manutenção.
 
-A escolha inicial foi `pdf-parse` (familiar, "padrão" no ecossistema Node). Ao gerar um PDF mínimo para `samples/` descobri que **`pdf-parse` v1.1.1 falha com `bad XRef entry`** tanto para PDFs gerados por `pdfkit` quanto por `pdf-lib` — ambas as bibliotecas de referência no ecossistema. A versão 1.1.1 empacota um `pdf.js` v1.10.100 de 2018, sem manutenção.
+**Solução:** troca por **`pdfjs-dist`** (build legacy, Mozilla). Ponto de troca pequeno (`src/lib/pdf.ts`) e teste `tests/pdf-flow.test.ts` sobre `samples/nota-fiscal.pdf`.
 
-**Decisão:** troquei `pdf-parse` por `pdfjs-dist` (build legacy, mesma engine porém atual e mantida pela Mozilla). O ponto de troca foi mínimo (`src/lib/pdf.ts`, ~20 linhas) e o teste `tests/pdf-flow.test.ts` valida o pipeline ponta a ponta sobre o sample real.
-
-Lição: para um avaliador rodar `docker compose up` e testar com um PDF qualquer, uma lib de leitura quebrada é um risco silencioso pior que qualquer over-engineering documentado.
+**Lição:** para quem roda `docker compose up` e testa com um PDF qualquer, lib de leitura quebrada é pior que over-engineering documentado.
 
 ### 1.4 Pré-cache do modelo Tesseract no build
 
-`tesseract.js` baixa `por.traineddata.gz` (~1 MB) **da internet na primeira execução**. Em ambiente do avaliador, isso:
+`tesseract.js` baixa `por.traineddata.gz` da internet na **primeira execução**:
 
-- Pode falhar se a rede do build/runtime estiver restrita.
-- Estoura facilmente o SLA de 30 s no primeiro documento PNG.
+- Pode falhar em rede restrita (CI, avaliador offline).
+- Estoura o SLA de 30 s no primeiro PNG.
 
-**Solução:** o `Dockerfile` baixa `por.traineddata.gz` e `eng.traineddata.gz` no estágio de build via `curl`, e `src/lib/ocr.ts` passa `langPath=/app/tessdata` + `cacheMethod=none` para forçar o uso local.
+**Solução:** o `Dockerfile` baixa `por` e `eng` no build; `src/lib/ocr.ts` usa `langPath=/app/tessdata` e `cacheMethod=none`.
 
-### 1.5 Race condition no `prisma db push`
+### 1.5 Migrations e ordem de subida no Docker
 
-O `docker-compose` original rodava `npx prisma db push` no entrypoint de `web` E de `worker` simultaneamente. Mesmo com `healthcheck` do Postgres, é uma corrida — dois clientes tentando aplicar o schema ao mesmo tempo geram erros intermitentes.
+Correr schema a partir de `web` e `worker` em paralelo gera **race condition** (dois clientes Prisma ao mesmo tempo).
 
-**Solução:** adicionei um serviço `init-db` (one-shot) que roda só o `db push --skip-generate`; `web` e `worker` dependem dele com `condition: service_completed_successfully`.
+**Solução:** serviço one-shot `init-db` com `prisma migrate deploy`; `web` e `worker` dependem de `service_completed_successfully`. Em dev local: `npm run db:migrate` antes de `dev`/`worker`.
 
 ### 1.6 Variable shadowing no `/api/health`
 
-Bug encontrado durante `tsc --noEmit`: `let redis` no escopo da função era ocultado por `const redis = getRedisConnection()` dentro do `try`, fazendo o flag de status nunca virar `"connected"`. Encontrado antes de qualquer execução, mas é o tipo de bug que passaria despercebido sem `noImplicitAny`/`noShadow`.
+`let redis` no escopo externo era ocultado por `const redis = getRedisConnection()` dentro do `try`, impedindo o status `"connected"`. Detectado em `tsc` / build Docker — típico bug que passa sem typecheck estrito.
+
+### 1.7 Build Docker e convenções React/JSX
+
+- **`pull access denied` para `document-platform:latest`:** Compose tenta puxar a imagem antes do build local. Mitigação: `docker compose up -d --build` na primeira vez ou após alterar código.
+- **`<motionCard>` vs `<MotionCard>`:** componente com nome em camelCase minúsculo é tratado como tag HTML inválida; o build Next.js falha com `Property 'motionCard' does not exist on type 'JSX.IntrinsicElements'`. Convenção React: **PascalCase** para componentes customizados.
+
+### 1.8 Ambiente Windows (Postgres, PowerShell, curl)
+
+- **Porta 5432** costuma estar ocupada por PostgreSQL local; o compose expõe **5433** no host — `DATABASE_URL` no `.env` deve usar a mesma porta e password que `POSTGRES_PASSWORD`.
+- **Volume antigo:** mudar senha no `.env` após o primeiro `up` não altera dados já criados → `docker compose down -v` e subir de novo.
+- **`curl` no PowerShell** é alias de `Invoke-WebRequest`; para multipart como no Linux, usar `curl.exe` ou `Invoke-RestMethod` só no health check.
+
+### 1.9 Enriquecimento antes do processamento terminar
+
+O endpoint de XML chama `ensureDocumentProcessed` (poll até 90 s). Sem **worker** (ou com `PROCESS_INLINE=false` e Redis indisponível), o documento fica em `pending`/`processing` e o cliente recebe **409 `DOCUMENT_NOT_READY`**. Exige documentação clara e UI que mostre o status — não é bug, é contrato assíncrono.
 
 ---
 
@@ -54,15 +71,17 @@ Bug encontrado durante `tsc --noEmit`: `let redis` no escopo da função era ocu
 
 | Débito | Motivo | Mitigação futura |
 |--------|--------|------------------|
-| Autenticação JWT omitida | Foco no fluxo documental em 4h | OAuth2 + RBAC por persona |
-| Job de expiração de arquivos (90 dias) não automatizado | Tempo | Cron/job que `DELETE` arquivos do volume com `created_at < now() - 90d` |
-| Sem endpoint de reprocessamento (`status=failed` → retry) | Escopo do MVP | `POST /documents/{id}/reprocess` |
-| NGINX/API Gateway omitido | API exposta direto na 3000 | Service `nginx` no compose, TLS via Let's Encrypt ou Cloudflare |
-| Paginação offset/limit | Simples e suficiente para 5k/dia | Cursor-based pagination para >100k docs |
-| Sem dead-letter queue no BullMQ | Default `attempts: 1` | `attempts: 3` + backoff exponencial + DLQ inspecionável |
-| `audit_logs` tabela existe mas não é populada | Tempo | Middleware em rotas chave registrando ação + ator |
-| Cobertura de teste mínima (12 testes, foco em pipeline) | Tempo | Mais testes de borda (XML parcial, OCR baixa confiança, arquivos corrompidos) |
-| Métricas / tracing ausentes | Stdout JSON cobre observabilidade básica | Prometheus + OpenTelemetry quando houver SRE |
+| Autenticação JWT omitida | Foco no fluxo documental no tempo do MVP | OAuth2 + RBAC por persona (Operador / Gestor / Admin) |
+| Job de expiração de arquivos (90 dias) não automatizado | Tempo | Cron ou BullMQ repeatable job + delete no volume |
+| Sem `POST /documents/{id}/reprocess` | Escopo | Retry explícito para `status=failed` |
+| NGINX / API Gateway omitido | Simplicidade | Service `nginx` no compose, TLS (Let's Encrypt / Cloudflare) |
+| Paginação offset/limit | Suficiente para ~5k/dia | Cursor-based pagination em volumes maiores |
+| BullMQ com `attempts: 1` (default) | Tempo | Backoff exponencial + dead-letter queue inspecionável |
+| Tabela `audit_logs` existe mas não é populada | Tempo | Middleware nas rotas críticas (ação + ator + request_id) |
+| Cobertura de testes mínima (patterns, PDF, XML) | Tempo | PDF criptografado, PNG corrompido, XML encoding inválido |
+| Métricas / tracing ausentes | Logs JSON (`pino`) cobrem o básico | Prometheus + OpenTelemetry |
+| Documentação de arquitetura fragmentada | Prioridade na entrega executável | Unificar ADRs e diagramas em `docs/` versionados |
+| UI em `page.tsx` funcional mas simples | Tempo | Design system, histórico de jobs, preview de padrões |
 
 ---
 
@@ -70,61 +89,75 @@ Bug encontrado durante `tsc --noEmit`: `let redis` no escopo da função era ocu
 
 ### Curto prazo (+2–4 horas)
 
-1. **SPA mínima** (página de upload + tabela de status) para demo visual — o `src/app/page.tsx` atual é placeholder.
-2. **Endpoint `POST /documents/{id}/reprocess`** para Operador corrigir falhas de OCR sem novo upload.
-3. **Mais samples e testes negativos** — PDF criptografado, PNG corrompido, XML com encoding errado.
-4. **Job de expiração de arquivos** rodando como segundo worker (BullMQ delayed/repeatable jobs).
+1. **Testes E2E** (Playwright ou API-only) cobrindo upload → worker → enrichment → relatório.
+2. **`POST /documents/{id}/reprocess`** para falhas de OCR sem novo upload.
+3. **Mais samples** — PNG de scan real, PDF criptografado, XML com encoding errado.
+4. **Job de expiração** (90 dias) como worker BullMQ repeatable.
+5. **CI (GitHub Actions)** — lint, `npm test`, build de imagem Docker.
 
 ### Médio prazo (+1–2 dias)
 
-1. **Métricas Prometheus** + dashboard básico (latência OCR p95, taxa de falha por origem).
+1. **Métricas Prometheus** — latência OCR p95, taxa de falha por origem (PDF vs PNG).
 2. **DLQ BullMQ** com endpoint admin de inspeção/replay.
-3. **Versionamento XSD** com `Accept`/`Content-Type` carregando a versão (`application/xml; profile=enrichment-1.0`).
-4. **CI no GitHub Actions** — lint, test, build de imagem, push para registry.
+3. **Versionamento XSD** (`Accept` / profile no Content-Type).
+4. **OpenAPI** gerado a partir dos Route Handlers ou contrato em `docs/api-contract.md` sincronizado com código.
 
 ### Longo prazo (produção)
 
-1. **Kubernetes** com HPA no worker baseado no tamanho da fila Redis.
-2. **MinIO/S3** em vez de volume local — alinhamento com cloud, retenção via lifecycle policies, backup transparente.
-3. **Read replica** Postgres para relatórios pesados (sem competir com escrita do worker).
-4. **Auditoria/LGPD completa** com retenção legal e direito ao esquecimento.
-5. **Notificações** (e-mail/webhook) quando documento atinge `processed`/`enriched`/`failed` — campo está no diagrama original mas com trigger indefinido.
+1. **Kubernetes** com HPA no worker pela profundidade da fila Redis.
+2. **Object storage (S3/MinIO)** em vez de volume local + lifecycle policy.
+3. **Read replica** Postgres para relatórios pesados.
+4. **Auditoria / LGPD** — retenção legal, direito ao esquecimento.
+5. **Notificações** (webhook/e-mail) em transições `processed` / `enriched` / `failed`.
 
 ---
 
 ## 4. Decisões que manteria
 
-- **PostgreSQL único** — 5k/dia + JSONB cobre todo o requisito; agregações SQL são triviais.
-- **Processamento assíncrono via BullMQ/Redis** — única forma de cumprir SLA de 30 s sem travar a request HTTP.
-- **`pdfjs-dist` + `tesseract.js`** — open-source, offline, sem chamada externa, reproduzível no Compose.
-- **XSD versionado no repositório** + validação **obrigatória** (não opcional como no diagrama) — contrato claro com o cliente, rejeita lixo cedo (HTTP 422).
-- **Monólito modular Next.js (web + worker)** — um build, um Dockerfile, dois entrypoints.
-- **Init container `init-db`** — `prisma db push` idempotente serializado antes de qualquer serviço de runtime.
+- **PostgreSQL único** — volumetria + JSONB cobrem o requisito; agregações são SQL direto.
+- **Processamento assíncrono (BullMQ + Redis)** — única forma realista de cumprir SLA de 30 s sem bloquear HTTP.
+- **`pdfjs-dist` + `tesseract.js`** — open-source, offline, reproduzível no Compose.
+- **XSD versionado no repositório** + validação **obrigatória** (HTTP 422) — contrato claro, rejeita lixo cedo.
+- **Monólito modular Next.js** — um build, um Dockerfile, entrypoints `web` e `worker`.
+- **`init-db` com `migrate deploy`** — migrations versionadas, idempotentes, antes de qualquer runtime.
 
 ---
 
-## 5. Decisões do diagrama que rejeitei
+## 5. Decisões do diagrama original que rejeitei
 
-Resumo (tabela completa em [`docs/architecture.md` §3](docs/architecture.md#3-análise-crítica-do-diagrama-original)):
-
-| Original | Rejeitado por |
-|----------|---------------|
-| Mongo + Postgres + MySQL + Elasticsearch | Volumetria não justifica polyglot; relatórios são SQL agregado |
-| Elasticsearch "cluster 3 nós obrigatório" | Não há busca full-text; `COUNT`/`GROUP BY` resolve |
-| MySQL `importacao_xml` com "join via aplicação" | Anti-pattern; uso JSONB no mesmo registro |
-| Processamento síncrono | OCR 5–20 s estoura SLA HTTP |
-| RabbitMQ "opcional" | Componente crítico não pode ser opcional; Redis explícito |
-| XSD opcional | Risco de dados inválidos no enriquecimento |
-| Filesystem "sem expiração nem backup" | Política de retenção explícita (90 dias) |
-| Microserviços (Upload/OCR/Processing/XML/Report) | Overhead injustificado para equipe pequena; monólito modular |
-| K8s + Docker single host coexistindo | Contradição interna no diagrama; escolhido Docker Compose para MVP |
+| Original | Decisão tomada |
+|----------|----------------|
+| Mongo + Postgres + MySQL + Elasticsearch | **Um** PostgreSQL |
+| Elasticsearch "cluster obrigatório" | Removido — relatórios com SQL |
+| Processamento síncrono | Fila + worker |
+| RabbitMQ "opcional" | Redis + BullMQ explícitos |
+| XSD opcional | **Obrigatório** |
+| Filesystem sem política | Volume Docker + retenção 90 dias (regra de negócio; job pendente) |
+| Vários microserviços | Monólito modular + worker |
+| K8s + Docker no mesmo desenho | **Docker Compose** para MVP |
 
 ---
 
-## 6. Registro de tempo
+## 6. Registro de tempo (referência)
 
-| Módulo | Tempo planejado | Tempo real |
-|--------|-----------------|------------|
-| 1 — Arquitetura, ADRs, schema | 60 min | ~60 min |
-| 2 — Core (upload, worker, OCR, XML) | 150 min | ~140 min |
-| 3 — Relatórios, Docker, testes, docs | 90 min | ~90 min |
+| Fase | Planejado | Real (aprox.) |
+|------|-----------|---------------|
+| Arquitetura e schema | 60 min | ~60 min |
+| Core (upload, worker, OCR, XML) | 150 min | ~140 min |
+| Relatórios, Docker, testes, docs | 90 min | ~90 min |
+
+---
+
+## 7. Como reproduzir os cenários de erro (manual)
+
+Use [`api.http`](api.http) ou a coleção Postman. Pré-requisito: stack no ar (`docker compose up -d --build` na pasta `web/`).
+
+| Cenário | Request | HTTP esperado |
+|---------|---------|---------------|
+| Upload sem arquivo | `POST /api/v1/documents` sem `file` | 400 `MISSING_FILE` |
+| Documento inexistente | `GET /api/v1/documents/{uuid-invalido}` | 404 `DOCUMENT_NOT_FOUND` |
+| XML antes de `processed` (sem worker) | `POST .../enrichment` logo após upload | 409 `DOCUMENT_NOT_READY` |
+| Processamento falhou | enrichment em doc `failed` | 409 `DOCUMENT_PROCESSING_FAILED` |
+| XML inválido (XSD) | `samples/enrichment-invalid.xml` | 422 `XML_VALIDATION_ERROR` |
+
+Após upload bem-sucedido, copie o `id` da resposta para a variável `documentId` em `api.http` ou na coleção Postman.

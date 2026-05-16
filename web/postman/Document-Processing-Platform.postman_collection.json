@@ -1,0 +1,229 @@
+{
+  "info": {
+    "_postman_id": "dpp-collection-2026",
+    "name": "Document Processing Platform",
+    "description": "Exemplos de chamadas à API v1 — Document Processing Platform (Next.js).\n\n**Setup:** suba a stack (`docker compose up -d --build` em `web/`), depois execute *Health* e *Upload PDF*. Copie o `id` retornado para a variável `documentId`.\n\nArquivo alternativo: `api.http` (REST Client no VS Code).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "documentId", "value": "550e8400-e29b-41d4-a716-446655440000" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Documents",
+      "item": [
+        {
+          "name": "POST Upload PDF",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.id) pm.collectionVariables.set('documentId', body.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "samples/nota-fiscal.pdf"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/documents",
+            "description": "Envia PDF ou PNG (máx. 25 MB). Resposta 201 com `id` e `status: pending`. Aguarde worker processar antes do enrichment."
+          }
+        },
+        {
+          "name": "GET Document by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/documents/{{documentId}}"
+          }
+        },
+        {
+          "name": "GET List documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/documents?page=1&page_size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "documents"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET List — status processed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/documents?status=processed&page=1&page_size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "documents"],
+              "query": [
+                { "key": "status", "value": "processed" },
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET List — has enrichment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/documents?has_enrichment=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "documents"],
+              "query": [{ "key": "has_enrichment", "value": "true" }]
+            }
+          }
+        },
+        {
+          "name": "GET List — date range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/documents?from=2026-05-01&to=2026-05-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "documents"],
+              "query": [
+                { "key": "from", "value": "2026-05-01" },
+                { "key": "to", "value": "2026-05-31" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST Enrichment XML",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "samples/enrichment-example.xml"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/documents/{{documentId}}/enrichment",
+            "description": "Requer status `processed` ou `enriched`. Valida contra XSD em `docs/xml-schema.xsd`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "GET Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/summary?from=2026-05-01&to=2026-05-31&group_by=day",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reports", "summary"],
+              "query": [
+                { "key": "from", "value": "2026-05-01" },
+                { "key": "to", "value": "2026-05-31" },
+                { "key": "group_by", "value": "day", "description": "day | week | month" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Export CSV",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/export.csv?status=processed",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reports", "export.csv"],
+              "query": [{ "key": "status", "value": "processed" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Errors (manual)",
+      "item": [
+        {
+          "name": "POST Upload — missing file (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": { "mode": "formdata", "formdata": [] },
+            "url": "{{baseUrl}}/api/v1/documents"
+          }
+        },
+        {
+          "name": "GET Document — not found (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/documents/00000000-0000-0000-0000-000000000000"
+          }
+        },
+        {
+          "name": "POST Enrichment — invalid XSD (422)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "samples/enrichment-invalid.xml"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/documents/{{documentId}}/enrichment"
+          }
+        }
+      ]
+    }
+  ]
+}
